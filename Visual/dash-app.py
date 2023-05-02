@@ -56,7 +56,7 @@ app.layout = html.Div(
         html.P(children="CT scan 3D Visualization"),
         html.Div(
             children=[
-                dcc.Graph(id='graph-with-slider', figure=initial_fig),
+                dcc.Graph(id='graph-with-selector', figure=initial_fig),
                 html.Div(
                     children=[
                         html.P(id='nodule-volume-info'),
@@ -66,20 +66,18 @@ app.layout = html.Div(
             ],
             style={"display": "flex", "flex-wrap": "wrap"}
         ),
-        dcc.Slider(
-            id='folder-slider',
-            min=0,
-            max=len(subdirectories) - 1,
-            value=0,
-            marks={i: f"{subdir}" for i, subdir in enumerate(subdirectories)},
+        dcc.Dropdown(
+            id='folder-selector',
+            options=[{'label': subdir, 'value': i} for i, subdir in enumerate(subdirectories)],
+            value=0
         ),
     ]
 )
 
 @app.callback(
-    [Output('graph-with-slider', 'figure'),
+    [Output('graph-with-selector', 'figure'),
      Output('nodule-volume-info', 'children')],
-    Input('folder-slider', 'value'),
+    Input('folder-selector', 'value'),
 )
 def update_figure(selected_folder_index):
     selected_folder_index = int(selected_folder_index)  # Convert the float to an integer
