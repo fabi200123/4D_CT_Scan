@@ -5,7 +5,7 @@ from skimage.measure import marching_cubes_lewiner
 import plotly.figure_factory as FF
 import dash
 from dash import dcc, html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
@@ -34,6 +34,13 @@ def return_fig(images, threshold, step_size):
 
 data_folder = "C:\\Users\\fabi2\\OneDrive\\Documents\\GitHub\\4D_CT_Scan\\Visual\\data\\converted_nrrds\\"
 subdirectories = get_subdirectories(data_folder)
+png_folder = "C:\\Users\\fabi2\\OneDrive\\Desktop\\data\\images_quick_check\\"
+
+def get_png_files(folder):
+    png_folder = os.path.join(folder + "_GTV-1_mask\\GTV-1_mask")
+    png_files = [os.path.join(png_folder, f) for f in os.listdir(png_folder) if f.endswith(".png")]
+    png_files.sort()
+    return png_files
 
 # Initialize imgs with the first subdirectory images
 if subdirectories:
@@ -46,7 +53,7 @@ if subdirectories:
         initial_root, initial_images = initial_file_struct
         imgs = [np.array(Image.open(os.path.join(initial_root, img))) for img in initial_images]
 
-app = dash.Dash(__name__)
+app = dash.Dash(__name__, prevent_initial_callbacks='initial_duplicate')
 
 initial_fig = None
 if subdirectories:
@@ -66,19 +73,18 @@ if subdirectories:
 
 app.layout = html.Div(
     children=[
-        html.H1(children="CT Scan"),
-        html.P(children="CT scan 3D Visualization"),
+        html.H1(children="CT scan 3D Visualization", style={"font-size": "32px"}),
         html.Div(
             children=[
                 html.Div(
                     children=[
                         dcc.Graph(id='graph-with-selector', figure=initial_fig),
                     ],
-                    style={"display": "inline-block", "vertical-align": "top", "width": "70%"}  # Update the style here
+                    style={"display": "inline-block", "vertical-align": "top", "width": "40%"}  # Update the style here
                 ),
                 html.Div(
                     children=[
-                        html.P(id='nodule-volume-info'),
+                        html.P(id='nodule-volume-info', style={"font-size": "32px"}),
                     ],
                     style={"display": "inline-block", "vertical-align": "left", "margin-left": "2px"}  # Update the style here
                 ),
@@ -88,18 +94,33 @@ app.layout = html.Div(
         dcc.Dropdown(
             id='folder-selector',
             options=[{'label': subdir, 'value': i} for i, subdir in enumerate(subdirectories)] + [{'label': 'None', 'value': -1}],
-            value=-1,  # Set the initial value to -1, representing no selection
+            value=0,  # Set the initial value to -1, representing no selection
             style={"max-width": "600px", "margin": "10px"},
+        ),
+        html.Div(
+            children=[
+                html.Div(
+                    children=[
+                        dcc.Slider(id='png-slider', min=0, max=0, value=0, step=1),
+                        html.Img(id='png-viewer', src=''),
+                    ],
+                    style={"display": "inline-block", "vertical-align": "top", "width": "30%"}  # Update the style here
+                ),
+            ],
+            style={"display": "block", "margin-top": "20px"}  # Update the style here
         ),
     ]
 )
 
 @app.callback(
     [Output('graph-with-selector', 'figure'),
-     Output('nodule-volume-info', 'children'),],
-    Input('folder-selector', 'value'),
+     Output('nodule-volume-info', 'children'),
+     Output('png-slider', 'max'),
+     Output('png-viewer', 'src', allow_duplicate=True)],
+    [Input('folder-selector', 'value'),
+     Input('png-slider', 'value')],
 )
-def update_figure(selected_folder_index):
+def update_figure(selected_folder_index, slider_value):
     if selected_folder_index != -1:
         selected_folder = subdirectories[selected_folder_index]
         image_nrrd_file = os.path.join(data_folder, selected_folder, "image.nrrd")
@@ -118,11 +139,45 @@ def update_figure(selected_folder_index):
 
         updated_fig = return_fig(nodule_arr, threshold=0.25, step_size=1)
         volume_info = f"Nodule volume: {nodule_volume:.2f} mm³"
+
+        png_files = get_png_files(os.path.join(png_folder, selected_folder))
+        if png_files:
+            max_slider_value = len(png_files) - 1
+            png_file_path = png_files[slider_value]
+            with open(png_file_path, "rb") as f:
+                image_bytes = f.read()
+            encoded_image = base64.b64encode(image_bytes)
+            png_src = f"data:image/png;base64,{encoded_image.decode()}"
+        else:
+            max_slider_value = 0
+            png_src = ''
+
     else:
         updated_fig = return_fig(np.zeros((2, 2, 2)), threshold=0.25, step_size=1)
         volume_info = f"Nodule volume: 0 mm³"
+        max_slider_value = -1  # Initialize to -1 if no subdirectory is selected
+        png_src = ''
 
-    return updated_fig, volume_info
+    return updated_fig, volume_info, max_slider_value, png_src
+
+@app.callback(
+    Output('png-viewer', 'src'),
+    Input('png-slider', 'value'),
+    State('folder-selector', 'value'),
+    prevent_initial_call='initial_duplicate'  # Add this parameter
+)
+def update_png_viewer(slider_value, selected_folder_index):
+    if selected_folder_index != -1:
+        selected_folder = subdirectories[selected_folder_index]
+        png_files = get_png_files(os.path.join(png_folder, selected_folder))
+        if png_files:
+            png_file_path = png_files[slider_value]
+            with open(png_file_path, "rb") as f:
+                image_bytes = f.read()
+            encoded_image = base64.b64encode(image_bytes)
+            return f"data:image/png;base64,{encoded_image.decode()}"
+    return ''
+
 
 if __name__ == "__main__":
     app.run_server(debug=True, port=80)
