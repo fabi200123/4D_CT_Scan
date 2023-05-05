@@ -22,6 +22,34 @@ def calculate_nodule_volume(nodule_arr, image):
     nodule_volume = non_zero_voxels * voxel_volume
     return nodule_volume
 
+def calculate_fractal_dimension(nodule_arr):
+    # Only for 2d image
+    assert(len(nodule_arr.shape) == 3)
+
+    # Transform nodule_arr into a binary array
+    nodule_arr = (nodule_arr > 0)
+
+    # Minimal and maximal box sizes
+    sizes = 2**np.arange(3, 10)
+
+    # Box counting
+    counts = []
+    for size in sizes:
+        count = 0
+        for x in range(0, nodule_arr.shape[0] - size + 1, size):
+            for y in range(0, nodule_arr.shape[1] - size + 1, size):
+                for z in range(0, nodule_arr.shape[2] - size + 1, size):
+                    if np.any(nodule_arr[x:x+size, y:y+size, z:z+size]):
+                        count += 1
+        counts.append(count)
+
+    # Add small constant to avoid zero values in log
+    counts = np.array(counts) + 1e-10
+
+    # Fit the sizes and counts to a linear equation in log-log scale
+    coeffs = np.polyfit(np.log(sizes), np.log(counts), 1)
+
+    return -coeffs[0]
 
 def return_fig(images, threshold, step_size):
     p = images.transpose(2, 1, 0)
@@ -85,8 +113,9 @@ app.layout = html.Div(
                 html.Div(
                     children=[
                         html.P(id='nodule-volume-info', style={"font-size": "32px"}),
+                        html.P(id='fractal-dimension-info', style={"font-size": "32px"}),
                     ],
-                    style={"display": "inline-block", "vertical-align": "left", "margin-left": "2px"}  # Update the style here
+                    style={"display": "inline-block", "vertical-align": "top", "margin-left": "2px"}  # Update the style here
                 ),
             ],
             style={"display": "block"}  # Update the style here
@@ -115,11 +144,13 @@ app.layout = html.Div(
 @app.callback(
     [Output('graph-with-selector', 'figure'),
      Output('nodule-volume-info', 'children'),
+     Output('fractal-dimension-info', 'children'),  # Add this line
      Output('png-slider', 'max'),
      Output('png-viewer', 'src', allow_duplicate=True)],
     [Input('folder-selector', 'value'),
      Input('png-slider', 'value')],
 )
+
 def update_figure(selected_folder_index, slider_value):
     if selected_folder_index != -1:
         selected_folder = subdirectories[selected_folder_index]
@@ -136,9 +167,12 @@ def update_figure(selected_folder_index, slider_value):
         nodule_arr = image_normalized * mask_arr
 
         nodule_volume = calculate_nodule_volume(nodule_arr, image)
+        nodule_fractal_dimension = calculate_fractal_dimension(nodule_arr)
 
         updated_fig = return_fig(nodule_arr, threshold=0.25, step_size=1)
+
         volume_info = f"Nodule volume: {nodule_volume:.2f} mm³"
+        fractal_info = f"Fractal dimension: {nodule_fractal_dimension:.2f}"
 
         png_files = get_png_files(os.path.join(png_folder, selected_folder))
         if png_files:
@@ -158,7 +192,7 @@ def update_figure(selected_folder_index, slider_value):
         max_slider_value = -1  # Initialize to -1 if no subdirectory is selected
         png_src = ''
 
-    return updated_fig, volume_info, max_slider_value, png_src
+    return updated_fig, volume_info, fractal_info, max_slider_value, png_src
 
 @app.callback(
     Output('png-viewer', 'src'),
