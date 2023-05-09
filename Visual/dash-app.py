@@ -10,10 +10,12 @@ import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
 from PIL import Image
+from radiomics import featureextractor
+import SimpleITK as sitk
+import scipy.spatial.distance as distance
 
 def get_subdirectories(folder):
     return [d for d in os.listdir(folder) if os.path.isdir(os.path.join(folder, d))]
-
 
 def calculate_nodule_volume(nodule_arr, image):
     non_zero_voxels = np.count_nonzero(nodule_arr)
@@ -50,6 +52,93 @@ def calculate_fractal_dimension(nodule_arr):
     coeffs = np.polyfit(np.log(sizes), np.log(counts), 1)
 
     return -coeffs[0]
+
+def compute_nodule_area(nodule_mask, voxel_spacing):
+    area = np.sum(nodule_mask) * voxel_spacing[0] * voxel_spacing[1]
+    return area
+
+def compute_features(image, mask):
+    extractor = featureextractor.RadiomicsFeatureExtractor()
+    extractor.disableAllFeatures()
+    extractor.enableFeatureClassByName("glcm")
+    extractor.enableFeatureClassByName("glrlm")
+
+    features = extractor.execute(image, mask)
+
+    return features
+
+def get_glcm_features(image_arr, mask_arr):
+    image = sitk.GetImageFromArray(image_arr)
+    mask = sitk.GetImageFromArray(mask_arr)
+
+    features = compute_features(image, mask)
+
+    correlation = features["original_glcm_Correlation"]
+    entropy = features["original_glcm_JointEntropy"]
+    contrast = features["original_glcm_Contrast"]
+    energy = features["original_glcm_JointEnergy"]
+    homegenetiy = features["original_glcm_Id"]
+
+    return correlation, entropy, contrast, energy, homegenetiy
+
+def calculate_max_distance(mask, voxel_spacing):
+    max_distance_axial = 0
+    max_distance_sagittal = 0
+    max_distance_coronal = 0
+
+    for z in range(mask.shape[0]):
+        axial_slice = mask[z, :, :]
+        coords = np.argwhere(axial_slice > 0)
+        if coords.size > 0:
+            coords_mm = coords * voxel_spacing[1:]
+            max_distance_axial = max(max_distance_axial, np.max(distance.pdist(coords_mm)))
+
+    for y in range(mask.shape[1]):
+        sagittal_slice = mask[:, y, :]
+        coords = np.argwhere(sagittal_slice > 0)
+        if coords.size > 0:
+            coords_mm = coords * [voxel_spacing[0], voxel_spacing[2]]
+            max_distance_sagittal = max(max_distance_sagittal, np.max(distance.pdist(coords_mm)))
+
+    for x in range(mask.shape[2]):
+        coronal_slice = mask[:, :, x]
+        coords = np.argwhere(coronal_slice > 0)
+        if coords.size > 0:
+            coords_mm = coords * voxel_spacing[:2]
+            max_distance_coronal = max(max_distance_coronal, np.max(distance.pdist(coords_mm)))
+
+    return max(max_distance_axial, max_distance_sagittal, max_distance_coronal)
+
+def get_calcification_spiculation_features(image_arr, mask_arr, nodule_diameter):
+    image = sitk.GetImageFromArray(image_arr)
+    mask = sitk.GetImageFromArray(mask_arr)
+
+    features = compute_features(image, mask)
+
+    correlation, entropy, contrast, energy, homegenetiy = get_glcm_features(image_arr, mask_arr)
+    calcification = correlation
+    spiculation = features['original_glrlm_ShortRunEmphasis']
+
+    if nodule_diameter <= 10:
+        D1 = -0.665 * correlation + 3.194 * entropy - 2.359 * contrast + 3.194 * energy - 1.986 * homegenetiy
+        if D1 > 0:
+            type_of_nodule = "Malign"
+        else:
+            type_of_nodule = "Benign"
+    if nodule_diameter <= 20:
+        D1 = 0.137 * correlation - 0.562 * entropy + 2.454 * contrast - 1.776* energy + 2.938* homegenetiy
+        if D1 < 0:
+            type_of_nodule = "Malign"
+        else:
+            type_of_nodule = "Benign"
+    else:
+        D1 = -0.465 * correlation + 0.133 * entropy + 2.231 * contrast - 1.344 * energy + 3.288 * homegenetiy
+        if D1 < 0:
+            type_of_nodule = "Malign"
+        else:
+            type_of_nodule = "Benign"
+
+    return calcification, spiculation, type_of_nodule
 
 def return_fig(images, threshold, step_size):
     p = images.transpose(2, 1, 0)
@@ -114,6 +203,10 @@ app.layout = html.Div(
                     children=[
                         html.P(id='nodule-volume-info', style={"font-size": "32px"}),
                         html.P(id='fractal-dimension-info', style={"font-size": "32px"}),
+                        html.P(id='nodule-area-info', style={"font-size": "32px"}),
+                        html.P(id='calcification-info', style={"font-size": "32px"}),
+                        html.P(id='spiculation-info', style={"font-size": "32px"}),
+                        html.P(id='type-of-nodule-info', style={"font-size": "32px"}),
                     ],
                     style={"display": "inline-block", "vertical-align": "top", "margin-left": "2px"}  # Update the style here
                 ),
@@ -144,7 +237,11 @@ app.layout = html.Div(
 @app.callback(
     [Output('graph-with-selector', 'figure'),
      Output('nodule-volume-info', 'children'),
-     Output('fractal-dimension-info', 'children'),  # Add this line
+     Output('fractal-dimension-info', 'children'),
+     Output('nodule-area-info', 'children'),
+     Output('calcification-info', 'children'),
+     Output('spiculation-info', 'children'),
+     Output('type-of-nodule-info', 'children'),
      Output('png-slider', 'max'),
      Output('png-viewer', 'src', allow_duplicate=True)],
     [Input('folder-selector', 'value'),
@@ -174,6 +271,18 @@ def update_figure(selected_folder_index, slider_value):
         volume_info = f"Nodule volume: {nodule_volume:.2f} mm³"
         fractal_info = f"Fractal dimension: {nodule_fractal_dimension:.2f}"
 
+        voxel_spacing = image.GetSpacing()
+        nodule_area = compute_nodule_area(mask_arr, voxel_spacing)
+        area_info = f"Nodule area: {nodule_area:.2f} mm²"
+
+        nodule_diameter = calculate_max_distance(mask_arr, voxel_spacing)
+        calcification, spiculation, type_of_nodule = get_calcification_spiculation_features(image_arr, mask_arr, nodule_diameter)
+        calcification_info = f"Calcification: {calcification:.4f}"
+        spiculation_info = f"Spiculation: {spiculation:.4f}"
+        type_of_nodule_info = f"Nodule type: {type_of_nodule}"
+
+        nodule_diameter = calculate_max_distance(mask_arr, voxel_spacing)
+
         png_files = get_png_files(os.path.join(png_folder, selected_folder))
         if png_files:
             max_slider_value = len(png_files) - 1
@@ -189,10 +298,15 @@ def update_figure(selected_folder_index, slider_value):
     else:
         updated_fig = return_fig(np.zeros((2, 2, 2)), threshold=0.25, step_size=1)
         volume_info = f"Nodule volume: 0 mm³"
+        fractal_info = f"Fractal dimension: 0"
+        area_info = f"Nodule area: 0 mm²"
+        calcification_info = f"Calcification: 0"
+        spiculation_info = f"Spiculation: 0"
+        type_of_nodule_info = f"Nodule type: None"
         max_slider_value = -1  # Initialize to -1 if no subdirectory is selected
         png_src = ''
 
-    return updated_fig, volume_info, fractal_info, max_slider_value, png_src
+    return updated_fig, volume_info, fractal_info, area_info, calcification_info, spiculation_info, type_of_nodule_info, max_slider_value, png_src
 
 @app.callback(
     Output('png-viewer', 'src'),
