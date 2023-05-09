@@ -201,12 +201,19 @@ app.layout = html.Div(
                 ),
                 html.Div(
                     children=[
-                        html.P(id='nodule-volume-info', style={"font-size": "32px"}),
-                        html.P(id='fractal-dimension-info', style={"font-size": "32px"}),
-                        html.P(id='nodule-area-info', style={"font-size": "32px"}),
-                        html.P(id='calcification-info', style={"font-size": "32px"}),
-                        html.P(id='spiculation-info', style={"font-size": "32px"}),
-                        html.P(id='type-of-nodule-info', style={"font-size": "32px"}),
+                        dcc.Dropdown(
+                            id='feature-dropdown',
+                            options=[
+                                {'label': 'Nodule Volume', 'value': 'nodule-volume'},
+                                {'label': 'Fractal Dimension', 'value': 'fractal-dimension'},
+                                {'label': 'Nodule Area', 'value': 'nodule-area'},
+                                {'label': 'Calcification', 'value': 'calcification'},
+                                {'label': 'Spiculation', 'value': 'spiculation'},
+                                {'label': 'Nodule type', 'value': 'nodule-type'},
+                            ],
+                            value='None'  # The default value
+                        ),
+                        html.P(id='info-display', style={"font-size": "32px"}),
                     ],
                     style={"display": "inline-block", "vertical-align": "top", "margin-left": "2px"}  # Update the style here
                 ),
@@ -236,19 +243,15 @@ app.layout = html.Div(
 
 @app.callback(
     [Output('graph-with-selector', 'figure'),
-     Output('nodule-volume-info', 'children'),
-     Output('fractal-dimension-info', 'children'),
-     Output('nodule-area-info', 'children'),
-     Output('calcification-info', 'children'),
-     Output('spiculation-info', 'children'),
-     Output('type-of-nodule-info', 'children'),
+     Output('info-display', 'children'),
      Output('png-slider', 'max'),
      Output('png-viewer', 'src', allow_duplicate=True)],
     [Input('folder-selector', 'value'),
-     Input('png-slider', 'value')],
+     Input('png-slider', 'value'),
+     Input('feature-dropdown', 'value')],
 )
 
-def update_figure(selected_folder_index, slider_value):
+def update_figure(selected_folder_index, slider_value, selected_feature):
     if selected_folder_index != -1:
         selected_folder = subdirectories[selected_folder_index]
         image_nrrd_file = os.path.join(data_folder, selected_folder, "image.nrrd")
@@ -263,25 +266,26 @@ def update_figure(selected_folder_index, slider_value):
         image_normalized = (image_arr - np.min(image_arr)) / (np.max(image_arr) - np.min(image_arr))
         nodule_arr = image_normalized * mask_arr
 
-        nodule_volume = calculate_nodule_volume(nodule_arr, image)
-        nodule_fractal_dimension = calculate_fractal_dimension(nodule_arr)
-
-        updated_fig = return_fig(nodule_arr, threshold=0.25, step_size=1)
-
-        volume_info = f"Nodule volume: {nodule_volume:.2f} mm³"
-        fractal_info = f"Fractal dimension: {nodule_fractal_dimension:.2f}"
-
         voxel_spacing = image.GetSpacing()
-        nodule_area = compute_nodule_area(mask_arr, voxel_spacing)
-        area_info = f"Nodule area: {nodule_area:.2f} mm²"
-
         nodule_diameter = calculate_max_distance(mask_arr, voxel_spacing)
         calcification, spiculation, type_of_nodule = get_calcification_spiculation_features(image_arr, mask_arr, nodule_diameter)
-        calcification_info = f"Calcification: {calcification:.4f}"
-        spiculation_info = f"Spiculation: {spiculation:.4f}"
-        type_of_nodule_info = f"Nodule type: {type_of_nodule}"
+        if selected_feature == 'nodule-volume':
+            nodule_volume = calculate_nodule_volume(nodule_arr, image)
+            info_display = f"Nodule volume: {nodule_volume: .2f} mm³"
+        elif selected_feature == 'fractal-dimension':
+            nodule_fractal_dimension = calculate_fractal_dimension(nodule_arr)
+            info_display = f"Fractal dimension: {nodule_fractal_dimension:.2f}"
+        elif selected_feature == 'nodule-area':
+            nodule_area = compute_nodule_area(mask_arr, voxel_spacing)
+            info_display = f"Nodule area: {nodule_area:.2f} mm²"
+        elif selected_feature == 'calcification':
+            info_display = f"Calcification: {calcification:.4f}"
+        elif selected_feature == 'spiculation':
+            info_display = f"Spiculation: {spiculation:.4f}"
+        elif selected_feature == 'nodule-type':
+            info_display = f"Nodule type: {type_of_nodule}"
 
-        nodule_diameter = calculate_max_distance(mask_arr, voxel_spacing)
+        updated_fig = return_fig(nodule_arr, threshold=0.25, step_size=1)
 
         png_files = get_png_files(os.path.join(png_folder, selected_folder))
         if png_files:
@@ -297,16 +301,11 @@ def update_figure(selected_folder_index, slider_value):
 
     else:
         updated_fig = return_fig(np.zeros((2, 2, 2)), threshold=0.25, step_size=1)
-        volume_info = f"Nodule volume: 0 mm³"
-        fractal_info = f"Fractal dimension: 0"
-        area_info = f"Nodule area: 0 mm²"
-        calcification_info = f"Calcification: 0"
-        spiculation_info = f"Spiculation: 0"
-        type_of_nodule_info = f"Nodule type: None"
+        info_display = f"None"
         max_slider_value = -1  # Initialize to -1 if no subdirectory is selected
         png_src = ''
 
-    return updated_fig, volume_info, fractal_info, area_info, calcification_info, spiculation_info, type_of_nodule_info, max_slider_value, png_src
+    return updated_fig, info_display, max_slider_value, png_src
 
 @app.callback(
     Output('png-viewer', 'src'),
