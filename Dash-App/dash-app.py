@@ -29,9 +29,9 @@ def return_fig(images, threshold, step_size):
     return fig
 
 
-data_folder = "C:\\Users\\fabi2\\OneDrive\\Documents\\GitHub\\4D_CT_Scan\\Visual\\data\\converted_nrrds\\"
+data_folder = "C:\\Users\\fabi2\\OneDrive\\Desktop\\Betty's idea of doing shit\\data\\converted_nrrds\\"
 subdirectories = get_subdirectories(data_folder)
-png_folder = "C:\\Users\\fabi2\\OneDrive\\Desktop\\data\\images_quick_check\\"
+png_folder = "C:\\Users\\fabi2\\OneDrive\\Desktop\\Betty's idea of doing shit\\data\\images_quick_check\\"
 
 # Initialize the vectors for features
 nodule_volume = []
@@ -51,7 +51,7 @@ def get_png_files(folder):
 if subdirectories:
     initial_selected_folder = subdirectories[0]
     initial_file_struct = None
-    for root, _, files in os.walk(os.path.join("C:\\Users\\fabi2\\OneDrive\\Desktop\\data\\images_quick_check\\", initial_selected_folder)):
+    for root, _, files in os.walk(os.path.join("C:\\Users\\fabi2\\OneDrive\\Desktop\\Betty's idea of doing shit\\data\\images_quick_check\\", initial_selected_folder)):
         initial_file_struct = (root, files)
         break
     if initial_file_struct:

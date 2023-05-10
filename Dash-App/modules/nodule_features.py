@@ -62,7 +62,7 @@ def get_calcification_nodule_type_features(image_arr, mask_arr, nodule_diameter)
             type_of_nodule = "Malign"
         else:
             type_of_nodule = "Benign"
-    if nodule_diameter <= 20:
+    elif nodule_diameter <= 20:
         D1 = 0.137 * correlation - 0.562 * entropy + 2.454 * contrast - 1.776* energy + 2.938* homegenetiy
         if D1 < 0:
             type_of_nodule = "Malign"
@@ -74,7 +74,6 @@ def get_calcification_nodule_type_features(image_arr, mask_arr, nodule_diameter)
             type_of_nodule = "Malign"
         else:
             type_of_nodule = "Benign"
-
     return calcification, type_of_nodule
 
 def get_all_features(data_folder, subdirectories):
