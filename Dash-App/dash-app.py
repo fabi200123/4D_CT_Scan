@@ -28,10 +28,10 @@ def return_fig(images, threshold, step_size):
     fig = FF.create_trisurf(x=x, y=y, z=z, plot_edges=False, colormap=colormap, simplices=faces, backgroundcolor='rgb(125, 125, 125)', title="3D Visualization of the CT Scan")
     return fig
 
-
-data_folder = "C:\\Users\\fabi2\\OneDrive\\Desktop\\Betty's idea of doing shit\\data\\converted_nrrds\\"
+path_to_data = "C:\\Users\\fabi2\\OneDrive\\Desktop\\Betty's idea of doing shit\\data\\"
+data_folder = path_to_data + "converted_nrrds\\"
 subdirectories = get_subdirectories(data_folder)
-png_folder = "C:\\Users\\fabi2\\OneDrive\\Desktop\\Betty's idea of doing shit\\data\\images_quick_check\\"
+png_folder = path_to_data + "images_quick_check\\"
 
 # Initialize the vectors for features
 nodule_volume = []
@@ -108,7 +108,7 @@ app.layout = html.Div(
                             dcc.Graph(id='info-graph'),
                         ]),
                     ],
-                    style={"display": "inline-block", "vertical-align": "top", "margin-left": "2px"}  # Update the style here
+                    style={"display": "inline-block", "vertical-align": "top", "margin-left": "200px"}  # Update the style here
                 ),
             ],
             style={"display": "block"}  # Update the style here
@@ -253,4 +253,4 @@ def update_info_display(selected_folder_index, selected_feature):
     return info_text, fig
 
 if __name__ == "__main__":
-    app.run_server(debug=True, port=80)
+    app.run_server(debug=True,host='192.168.101.18', port=80)
