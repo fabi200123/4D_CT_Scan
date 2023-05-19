@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import SimpleITK as sitk
-from skimage.measure import marching_cubes_lewiner
+from skimage.measure import marching_cubes
 import plotly.figure_factory as FF
 import dash
 from dash import dcc, html
@@ -22,16 +22,18 @@ def get_subdirectories(folder):
 
 def return_fig(images, threshold, step_size):
     p = images.transpose(2, 1, 0)
-    verts, faces, _, _ = marching_cubes_lewiner(p, threshold, step_size=step_size, allow_degenerate=True)
+    verts, faces, _, _ = marching_cubes(p, threshold, step_size=step_size, allow_degenerate=True)
     x, y, z = zip(*verts)
     colormap = ['rgb(255, 192, 203)', 'rgb(236, 236, 212)']
     fig = FF.create_trisurf(x=x, y=y, z=z, plot_edges=False, colormap=colormap, simplices=faces, backgroundcolor='rgb(125, 125, 125)', title="3D Visualization of the CT Scan")
     return fig
 
-
-data_folder = "C:\\Users\\fabi2\\OneDrive\\Desktop\\Betty's idea of doing shit\\data\\converted_nrrds\\"
+path_to_data = "C:\\Users\\fabi2\\OneDrive\\Desktop\\Betty's idea of doing shit\\"
+name_of_pacient = "produced_segmentations"
+path_to_data += name_of_pacient + "\\"
+data_folder = path_to_data + "converted_nrrds\\"
 subdirectories = get_subdirectories(data_folder)
-png_folder = "C:\\Users\\fabi2\\OneDrive\\Desktop\\Betty's idea of doing shit\\data\\images_quick_check\\"
+png_folder = path_to_data + "images_quick_check\\"
 
 # Initialize the vectors for features
 nodule_volume = []
@@ -63,7 +65,7 @@ app = dash.Dash(__name__, prevent_initial_callbacks='initial_duplicate')
 initial_fig = None
 if subdirectories:
     initial_image_nrrd_file = os.path.join(data_folder, subdirectories[0], "image.nrrd")
-    initial_mask_nrrd_file = os.path.join(data_folder, subdirectories[0], "GTV-1_mask.nrrd")
+    initial_mask_nrrd_file = os.path.join(data_folder, subdirectories[0], "DL_mask.nrrd")
 
     initial_image = sitk.ReadImage(initial_image_nrrd_file)
     initial_mask = sitk.ReadImage(initial_mask_nrrd_file)
@@ -108,7 +110,7 @@ app.layout = html.Div(
                             dcc.Graph(id='info-graph'),
                         ]),
                     ],
-                    style={"display": "inline-block", "vertical-align": "top", "margin-left": "2px"}  # Update the style here
+                    style={"display": "inline-block", "vertical-align": "top", "margin-left": "200px"}  # Update the style here
                 ),
             ],
             style={"display": "block"}  # Update the style here
@@ -151,7 +153,7 @@ def update_figure(selected_folder_index, slider_value):
     if selected_folder_index != -1:
         selected_folder = subdirectories[selected_folder_index]
         image_nrrd_file = os.path.join(data_folder, selected_folder, "image.nrrd")
-        mask_nrrd_file = os.path.join(data_folder, selected_folder, "GTV-1_mask.nrrd")
+        mask_nrrd_file = os.path.join(data_folder, selected_folder, "DL_mask.nrrd")
 
         image = sitk.ReadImage(image_nrrd_file)
         mask = sitk.ReadImage(mask_nrrd_file)
@@ -253,4 +255,4 @@ def update_info_display(selected_folder_index, selected_feature):
     return info_text, fig
 
 if __name__ == "__main__":
-    app.run_server(debug=True, port=80)
+    app.run_server(debug=True,host='192.168.101.18', port=8080)

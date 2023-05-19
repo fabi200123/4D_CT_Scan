@@ -8,7 +8,7 @@ from PIL import Image
 from radiomics import featureextractor
 import SimpleITK as sitk
 import scipy.spatial.distance as distance
-from .calculate_nodule_dimensions import calculate_nodule_volume, calculate_fractal_dimension, compute_nodule_area, calculate_min_distance
+from .calculate_nodule_dimensions import calculate_nodule_volume, calculate_fractal_dimension, compute_nodule_area, calculate_max_distance
 
 def compute_features(image, mask):
     extractor = featureextractor.RadiomicsFeatureExtractor()
@@ -102,7 +102,7 @@ def get_all_features(data_folder, subdirectories):
         voxel_spacing = image.GetSpacing()
         nodule_area.append(compute_nodule_area(mask_arr, voxel_spacing))
 
-        nodule_diameter = calculate_min_distance(mask_arr, voxel_spacing)
+        nodule_diameter = calculate_max_distance(mask_arr, voxel_spacing)
         calcification_value, type_of_nodule_value = get_calcification_nodule_type_features(image_arr, mask_arr, nodule_diameter)
         calcification.append(calcification_value)
         type_of_nodule.append(type_of_nodule_value)
