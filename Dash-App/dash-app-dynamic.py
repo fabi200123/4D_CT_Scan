@@ -29,6 +29,9 @@ def return_fig(images, threshold, step_size):
     x, y, z = zip(*verts)
     colormap = ['rgb(255, 192, 203)', 'rgb(236, 236, 212)']
     fig = FF.create_trisurf(x=x, y=y, z=z, plot_edges=False, colormap=colormap, simplices=faces, backgroundcolor='rgb(125, 125, 125)', title="3D Visualization of the CT Scan")
+    fig.layout.scene.xaxis.title = 'Width'
+    fig.layout.scene.yaxis.title = 'Height'
+    fig.layout.scene.zaxis.title = 'Depth (Slice Number)'
     return fig
 
 def get_png_files(folder):
@@ -300,14 +303,19 @@ def update_info_display(selected_folder_index, selected_feature):
     # Create a scatter plot of all feature data
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=list(range(len(feature_data))),
+        x=subdirectories,
         y=feature_data,
         mode='lines+markers',
         line=dict(color='gray', dash='dot'),
         marker=dict(size=[30 if x == selected_folder_index else 10 for x in range(len(feature_data))],
                     color=['red' if x == selected_folder_index else 'blue' for x in range(len(feature_data))])
     ))
-    fig.update_layout(title=selected_feature, xaxis_title="Folder Index", yaxis_title=selected_feature)
+    fig.update_layout(
+    title=selected_feature.capitalize().replace("-", " ") + ' Over Time',
+    xaxis_title="CT Scan Date",
+    yaxis_title=selected_feature.capitalize().replace("-", " ")
+    )
+
 
     return info_text, fig
 
