@@ -17,8 +17,10 @@ import plotly.graph_objects as go
 from flask import Flask, redirect
 from pymongo import MongoClient
 from bson import ObjectId
+from datetime import datetime
 
-from modules.nodule_features import get_all_features
+def timestamp_to_date(timestamp):
+    return datetime.fromtimestamp(int(timestamp)/1000.0).strftime('%Y-%m-%d')
 
 def get_subdirectories(folder):
     return [d for d in os.listdir(folder) if os.path.isdir(os.path.join(folder, d))]
@@ -28,7 +30,11 @@ def return_fig(images, threshold, step_size):
     verts, faces, _, _ = marching_cubes(p, threshold, step_size=step_size, allow_degenerate=True)
     x, y, z = zip(*verts)
     colormap = ['rgb(255, 192, 203)', 'rgb(236, 236, 212)']
+<<<<<<< Updated upstream
     fig = FF.create_trisurf(x=x, y=y, z=z, plot_edges=False, colormap=colormap, simplices=faces, backgroundcolor='rgb(125, 125, 125)', title="3D Visualization of the CT Scan")
+=======
+    fig = FF.create_trisurf(x=x, y=y, z=z, plot_edges=False, colormap=colormap, simplices=faces, backgroundcolor='rgb(125, 125, 125)', title="3D Visualization of the Nodule")
+>>>>>>> Stashed changes
     fig.layout.scene.xaxis.title = 'Width'
     fig.layout.scene.yaxis.title = 'Height'
     fig.layout.scene.zaxis.title = 'Depth (Slice Number)'
@@ -138,7 +144,6 @@ def handle_request(path_wanted):
         type_of_nodule.append(data['type_of_nodule'])
     app.layout = html.Div(
         children=[
-            html.H1(children="CT scan 3D Visualization", style={"font-size": "32px"}),
             html.Div(
                 children=[
                     html.Div(
@@ -300,10 +305,18 @@ def update_info_display(selected_folder_index, selected_feature):
         feature_data = type_of_nodule
         selected_feature_data = type_of_nodule[selected_folder_index]
 
+    timestamps = []
+    for time_stamp in subdirectories:
+        timestamps.append(timestamp_to_date(time_stamp.replace("_1-1", "")))
+
     # Create a scatter plot of all feature data
     fig = go.Figure()
     fig.add_trace(go.Scatter(
+<<<<<<< Updated upstream
         x=subdirectories,
+=======
+        x=timestamps,
+>>>>>>> Stashed changes
         y=feature_data,
         mode='lines+markers',
         line=dict(color='gray', dash='dot'),
