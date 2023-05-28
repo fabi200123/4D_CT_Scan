@@ -4,7 +4,17 @@ import pymongo
 from modules.nodule_features import get_all_features
 from pymongo import MongoClient
 from bson import ObjectId
+import sys
 
+
+'''
+How to run:
+$ python get_data_in_mongo.py PACIENT_FOLDER PACIENT_ID
+'''
+
+# Arguments
+name_of_pacient = sys.argv[1]
+pacient_id = ObjectId(sys.argv[2]) # pacient_id here - 645430a43b0ec4b7df36aec6
 
 # Your MongoDB Atlas cluster connection string
 MONGO_CONNECTION_STRING = "mongodb+srv://dianavelciov:parola@cluster0.qqmezlq.mongodb.net/cool_notes_app?retryWrites=true&w=majority"
@@ -22,7 +32,6 @@ def get_subdirectories(folder):
     return [d for d in os.listdir(folder) if os.path.isdir(os.path.join(folder, d))]
 
 path_to_data = "C:\\Users\\fabi2\\OneDrive\\Desktop\\Betty's idea of doing shit\\"
-name_of_pacient = "data"
 path_to_data += name_of_pacient + "\\"
 data_folder = path_to_data + "converted_nrrds\\"
 subdirectories = get_subdirectories(data_folder)
@@ -48,8 +57,6 @@ for i, selected_folder in enumerate(subdirectories):
         "type_of_nodule": type_of_nodule[i]
     })
     print("Data is:", data[i])
-
-pacient_id = ObjectId('645430a43b0ec4b7df36aec6')
 
 result = collection.update_one({"_id": pacient_id}, {"$set": {"Data": data}}, upsert=True)
 print("Matched documents: ", result.matched_count)
