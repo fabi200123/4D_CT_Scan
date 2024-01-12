@@ -1,0 +1,12 @@
+name: DoNothing
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Do Nothing
+      run: |
+        echo "Hello world"
