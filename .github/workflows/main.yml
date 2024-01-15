@@ -1,0 +1,12 @@
+name: DoNothingWindows
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: [self-hosted, windows]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Do Nothing
+      run: |
+        echo "Hello world"
